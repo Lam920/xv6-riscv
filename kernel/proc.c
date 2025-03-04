@@ -125,6 +125,11 @@ found:
   p->pid = allocpid();
   p->state = USED;
 
+   /* Initial set is_trace = 0; */
+  p->is_trace = 0;
+  p->trace_num = 0;
+
+
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
     freeproc(p);
@@ -169,6 +174,8 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
+  p->is_trace = 0;
+  p->trace_num = 0;
 }
 
 // Create a user page table for a given process, with no user memory,
@@ -295,6 +302,11 @@ fork(void)
     return -1;
   }
   np->sz = p->sz;
+
+
+  /* Copy trace variable from parent to child */
+  np->is_trace = p->is_trace;
+  np->trace_num = p->trace_num;
 
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);

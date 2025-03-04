@@ -71,6 +71,17 @@ sys_sleep(void)
   return 0;
 }
 
+uint64 sys_trace(void){
+    int trace_num;
+    argint(0, &trace_num);
+    // printf("Trace for number: %d\n", trace_num); 
+    struct proc *p = myproc();
+    acquire(&p->lock);
+    p->trace_num = trace_num;
+    release(&p->lock);
+    return 0;
+}
+
 uint64
 sys_kill(void)
 {
