@@ -1,3 +1,5 @@
+#include "memlayout.h"
+
 struct buf;
 struct context;
 struct file;
@@ -80,6 +82,8 @@ int             pipewrite(struct pipe*, uint64, int);
 int            printf(char*, ...) __attribute__ ((format (printf, 1, 2)));
 void            panic(char*) __attribute__((noreturn));
 void            printfinit(void);
+/* lambt9: backtrace system call */
+int             backtrace(void);
 
 // proc.c
 int             cpuid(void);
@@ -147,6 +151,13 @@ void            trapinit(void);
 void            trapinithart(void);
 extern struct spinlock tickslock;
 void            usertrapret(void);
+
+extern struct spinlock cowlock;
+
+#ifdef LAB_COW
+extern int handle_pagefault(void);
+extern int pgcount_arr[32768];
+#endif
 
 // uart.c
 void            uartinit(void);

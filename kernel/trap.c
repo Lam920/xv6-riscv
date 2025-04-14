@@ -65,7 +65,15 @@ usertrap(void)
     intr_on();
 
     syscall();
-  } else if((which_dev = devintr()) != 0){
+
+  } else if((r_scause() == 15)){
+    handle_pagefault();
+  }else if(r_scause() == 2){
+    printf("illegal instruction at: %p of pid: %d with name: %s\n", (uint64 *)myproc()->trapframe->epc, myproc()->pid, myproc()->name);
+    printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
+    printf("            sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
+    panic("Handle illegal\n");
+  }else if((which_dev = devintr()) != 0){
     // ok
   } else {
     printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
@@ -82,6 +90,72 @@ usertrap(void)
 
   usertrapret();
 }
+
+/* Handling page fault exception*/
+#ifdef LAB_COW
+int handle_pagefault(void) 
+{
+  /* [cow] get virtual address that caused page fault when write */
+  uint64 va = r_stval();
+  uint64 pa;
+  struct proc *p = myproc();
+  pte_t *pte;
+  char *mem;
+
+  if (va >= MAXVA) 
+  {
+    setkilled(p);
+    return -1;
+  }
+
+  /* [cow] at first, va must be aligned to PAGETABLE for not panic */
+  // printf("***Before va: %p of pid: %d with name: %s****\n", (uint64 *)va, p->pid, p->name);
+  va = PGROUNDDOWN(va);
+  if((pte = walk(p->pagetable, va, 0)) == 0)
+  {
+    printf("pagefault: pte should exist\n");
+    setkilled(p);
+    return -1;
+  }
+  if((*pte & PTE_V) == 0)
+  {
+    printf("pagefault: page not present\n");
+    setkilled(p);
+  }
+  /* [cow] get old mapping memory between child and parent.
+  Now child want to write to this memory, so we need to copy to child
+  and add perm */
+  pa = PTE2PA(*pte);
+  // [cow] copy all pte flags from parent to child
+  // printf("pte flags: %p\n", (uint64 *)PTE_FLAGS(*pte));
+  if ((*pte & PTE_COW) == 0) {
+    printf("Real pagefault\n");
+    setkilled(p);
+    return -1;
+  }
+  if((mem = kalloc()) == 0)
+      goto err;
+  memmove(mem, (char*)pa, PGSIZE);
+  /* [cow] Update pte to newly allocated physical memory */
+  if (PTE_FLAGS(*pte) & PTE_COW) {
+    *pte = PA2PTE(mem) | PTE_FLAGS(*pte) | PTE_W;
+    *pte = *pte & (~PTE_COW);
+  }
+
+  /* [cow] Decrease ref count to pagetable*/
+  kfree((void *)pa);
+  return 0;
+err:
+  uvmunmap(p->pagetable, 0, va / PGSIZE, 1);
+  printf("Handle pagefault error\n");
+  return -1;
+}
+#else
+int handle_pagefault(void) {
+  panic("Do pagefault\n");
+  return 0;
+}
+#endif
 
 //
 // return to user space

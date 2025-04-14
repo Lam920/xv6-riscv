@@ -39,6 +39,15 @@
 #define KERNBASE 0x80000000L
 #define PHYSTOP (KERNBASE + 128*1024*1024)
 
+// [cow]
+
+#ifndef __ASSEMBLER__
+extern char end[];
+#endif
+
+#define TOTAL_PGNUM ((PHYSTOP - (uint64)end)/PGSIZE)
+#define PAGECOUNT_IDX(pa) (((uint64)pa - (uint64)end)/PGSIZE)
+
 // map the trampoline page to the highest address,
 // in both user and kernel space.
 #define TRAMPOLINE (MAXVA - PGSIZE)

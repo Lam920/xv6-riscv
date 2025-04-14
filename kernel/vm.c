@@ -315,15 +315,35 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   pte_t *pte;
   uint64 pa, i;
   uint flags;
+#ifndef LAB_COW
   char *mem;
+#endif
 
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
       panic("uvmcopy: pte should exist");
     if((*pte & PTE_V) == 0)
       panic("uvmcopy: page not present");
+#ifdef LAB_COW
+    /* [cow] also mark parent PTE as readonly*/
+    // if (1) { cause error ??????? illegal instruction
+    if (*pte & PTE_W) {
+      *pte = (*pte) & (~PTE_W);
+      *pte = (*pte) | PTE_COW;
+    }
     pa = PTE2PA(*pte);
+    /* [cow] copy all pte flags from parent to child */
     flags = PTE_FLAGS(*pte);
+    /* [cow] map new child process pagetable pa memory same as parent */
+    if(mappages(new, i, PGSIZE, (uint64)pa, flags) != 0){
+      goto err;
+    }
+    acquire(&cowlock);
+    pgcount_arr[PAGECOUNT_IDX((uint64)pa)] += 1;
+    release(&cowlock);
+#endif
+
+#ifndef LAB_COW
     if((mem = kalloc()) == 0)
       goto err;
     memmove(mem, (char*)pa, PGSIZE);
@@ -331,6 +351,7 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
       kfree(mem);
       goto err;
     }
+#endif
   }
   return 0;
 
@@ -367,12 +388,27 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
       return -1;
     pte = walk(pagetable, va0, 0);
     if(pte == 0 || (*pte & PTE_V) == 0 || (*pte & PTE_U) == 0 ||
-       (*pte & PTE_W) == 0)
+      ((*pte & PTE_W) == 0 && (*pte & PTE_COW) == 0)) 
       return -1;
     pa0 = PTE2PA(*pte);
     n = PGSIZE - (dstva - va0);
     if(n > len)
       n = len;
+    if (*pte & PTE_COW) {
+      char *mem;
+      if((mem = kalloc()) == 0) {
+        panic("Failed to allocate physical page for COW\n");
+      }
+      /* Rewrite child pte with new PA and new permission */
+      /* First copy original mapping page to newly allocated page */
+      memmove(mem, (char*)pa0, PGSIZE);
+      *pte = PA2PTE(mem) | PTE_FLAGS(*pte) | PTE_W;
+      *pte = *pte & (~PTE_COW);
+      memmove((void *)((uint64)mem + (dstva - va0)), src, n);
+      /* Free COW mapping page (decrease reference) */
+      kfree((void *)pa0);
+      pa0 = (uint64)mem;
+    }
     memmove((void *)(pa0 + (dstva - va0)), src, n);
 
     len -= n;
