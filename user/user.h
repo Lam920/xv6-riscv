@@ -1,4 +1,6 @@
 struct stat;
+struct sockaddr;
+struct in_addr;
 
 // system calls
 int fork(void);
@@ -22,6 +24,16 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
+int socket(int, int, int);
+int bind(int, struct sockaddr*, int);
+int recvfrom(int, char*, int, struct sockaddr*, int*);
+int sendto(int, char*, int, struct sockaddr*, int);
+int connect(int, struct sockaddr*, int);
+int listen(int, int);
+int accept(int, struct sockaddr*, int*);
+int recv(int, char*, int);
+int send(int, char*, int);
+int ioctl(int, int, void*);
 
 // ulib.c
 int stat(const char*, struct stat*);
@@ -37,6 +49,12 @@ void* memset(void*, int, uint);
 int atoi(const char*);
 int memcmp(const void *, const void *, uint);
 void *memcpy(void *, const void *, uint);
+uint16_t htons(uint16_t);
+uint16_t ntohs(uint16_t);
+uint32_t htonl(uint32_t);
+uint32_t ntohl(uint32_t);
+long strtol(const char*, char**, int);
+int inet_pton(int, const char*, void*);
 
 // umalloc.c
 void* malloc(uint);

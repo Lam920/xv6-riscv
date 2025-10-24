@@ -4,10 +4,12 @@
 // based on qemu's hw/riscv/virt.c:
 //
 // 00001000 -- boot ROM, provided by qemu
+// 00101000 -- RTC
 // 02000000 -- CLINT
 // 0C000000 -- PLIC
 // 10000000 -- uart0 
 // 10001000 -- virtio disk 
+// 10002000 -- virtio network
 // 80000000 -- boot ROM jumps here in machine mode
 //             -kernel loads the kernel here
 // unused RAM after 80000000.
@@ -17,6 +19,9 @@
 // end -- start of kernel page allocation area
 // PHYSTOP -- end RAM used by the kernel
 
+// Goldfish RTC
+#define RTC 0x00101000L
+
 // qemu puts UART registers here in physical memory.
 #define UART0 0x10000000L
 #define UART0_IRQ 10
@@ -24,6 +29,8 @@
 // virtio mmio interface
 #define VIRTIO0 0x10001000
 #define VIRTIO0_IRQ 1
+#define VIRTIO1 0x10002000L
+#define VIRTIO1_IRQ 2
 
 // qemu puts platform-level interrupt controller (PLIC) here.
 #define PLIC 0x0c000000L
